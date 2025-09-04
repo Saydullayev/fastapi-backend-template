@@ -12,11 +12,9 @@ class UserService:
     async def create_user(user_data: UserCreate) -> Optional[UserResponse]:
         """Create a new user with hashed password"""
         # Check if user already exists
-        if await UserRepository.user_exists(username=user_data.username):
+        if await UserRepository.user_exists(username=user_data.username, email=user_data.email):
             return None
-        
-        if await UserRepository.user_exists(email=user_data.email):
-            return None
+        print("kirishi kerak bulmaga joyga kirdi")
         
         # Hash password
         hashed_password = get_password_hash(user_data.password)

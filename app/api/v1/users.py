@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import JSONResponse
 from typing import List
 from app.schemas.user import UserCreate, UserResponse, UserUpdate, UserLogin, Token
 from app.services.user_service import UserService
@@ -20,16 +21,16 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     token = credentials.credentials
     payload = verify_token(token)
     if payload is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Invalid authentication credentials"},
             headers={"WWW-Authenticate": "Bearer"},
         )
     username: str = payload.get("sub")
     if username is None:
-        raise HTTPException(
+        return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
+            content={"detail": "Could not validate credentials"},
             headers={"WWW-Authenticate": "Bearer"},
         )
     return {"username": username}
@@ -41,9 +42,9 @@ async def register_user(user_data: UserCreate):
     try:
         user = await UserService.create_user(user_data)
         if user is None:
-            raise HTTPException(
+            return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username or email already exists"
+                content={"detail": "Username or email already exists"}
             )
         logger.info(f"New user registered: {user.username}")
         return user
@@ -64,16 +65,14 @@ async def login_user(user_credentials: UserLogin):
             user_credentials.password
         )
         if user is None:
-            raise HTTPException(
+            return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password"
+                content={"detail": "Incorrect username or password"}
             )
         
         access_token = await UserService.create_access_token_for_user(user)
         logger.info(f"User logged in: {user.username}")
         return {"access_token": access_token, "token_type": "bearer"}
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Error during login: {str(e)}")
         raise HTTPException(
@@ -88,13 +87,11 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user)):
     try:
         user = await UserService.get_user_by_username(current_user["username"])
         if user is None:
-            raise HTTPException(
+            return JSONResponse(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+                content={"detail": "User not found"}
             )
         return user
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Error getting user info: {str(e)}")
         raise HTTPException(
@@ -107,22 +104,25 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user)):
 async def get_all_users(
     limit: int = 100, 
     offset: int = 0,
-    current_user: dict = Depends(get_current_user)
+    request: Request = None
 ):
-    """Get all users (admin only)"""
+    """Get all users (admin only) using middleware for authentication"""
     try:
-        # Check if current user is admin
+        # Get current user from request.state (set by middleware)
+        current_user = getattr(request.state, "current_user", None)
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required"
+            )
         current_user_obj = await UserService.get_user_by_username(current_user["username"])
         if not current_user_obj or not current_user_obj.is_superuser:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not enough permissions"
             )
-        
         users = await UserService.get_all_users(limit=limit, offset=offset)
         return users
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Error getting all users: {str(e)}")
         raise HTTPException(

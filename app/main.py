@@ -7,7 +7,7 @@ import logging
 from app.core.config import settings
 from app.core.db import init_db, close_db
 from app.core.logging import setup_logging
-from app.api.v1 import users, products, orders
+from app.api.v1 import users
 from app.middleware.auth import AuthMiddleware, AdminMiddleware
 from app.middleware.logging import LoggingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
