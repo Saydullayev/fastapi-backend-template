@@ -90,7 +90,7 @@ MyApp/
 
 5. **Initialize database**
    ```bash
-   aerich init-db
+   aerich init --tortoise-orm app.core.config.settings
    ```
 
 6. **Run the application**
@@ -117,7 +117,7 @@ The API uses JWT (JSON Web Tokens) for authentication:
    POST /api/v1/users/register
    {
      "username": "john_doe",
-     "email": "john@example.com",
+     "email": "john@example.com",w
      "password": "secure_password"
    }
    ```
